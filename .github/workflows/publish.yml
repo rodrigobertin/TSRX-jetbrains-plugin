@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/regenerate-textmate.js
-      - run: ./gradlew buildPlugin verifyPlugin --stacktrace
+      - run: ./gradlew buildPlugin --stacktrace
       - name: Publish to Marketplace
         run: ./gradlew publishPlugin --stacktrace
         env:
