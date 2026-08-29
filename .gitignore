@@ -51,3 +51,4 @@ bin/
 !src/main/resources/textmate/Syntaxes/
 !src/main/resources/textmate/Syntaxes/tsrx.tmLanguage.json
 !src/main/resources/textmate/info.plist
+.idea
