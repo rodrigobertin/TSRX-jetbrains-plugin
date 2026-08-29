@@ -1,6 +1,8 @@
 package dev.tsrx.intellij_plugin
 
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
@@ -85,12 +87,27 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 
 			LOG.warn("TsrxGotoDeclarationHandler: text='${text.take(30)}' wordAtCaret='$effectiveWord' beforeCaret='${beforeCaret.takeLast(40)}' isDeclaration=$isDeclaration caretOffset=$caretOffset offset=$offset file=${file.name}")
 
-			// If isDeclaration, return the sourceElement itself to trigger \"show usages\" fallback.
-			// GotoDeclarationOrUsagesHandler2 will see target == source and show usages popup
-			// which will be populated by LSP textDocument/references.
+			// If isDeclaration, trigger Find Usages directly (Cmd+B on definition should show usages)
+			// Returning sourceElement alone just moves cursor for TEXT leaf; we need to invoke ShowUsages.
 			if (isDeclaration) {
-				LOG.warn("TsrxGotoDeclarationHandler: returning sourceElement for usages popup: ${file.name}:$caretOffset word=$effectiveWord")
-				return arrayOf(sourceElement)
+				LOG.warn("TsrxGotoDeclarationHandler: triggering FindUsages for declaration: ${file.name}:$caretOffset word=$effectiveWord")
+				if (editor != null) {
+					val project = file.project
+					ApplicationManager.getApplication().invokeLater {
+						try {
+							GotoDeclarationAction.startFindUsages(editor, project, sourceElement)
+							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked for ${file.name}:$caretOffset")
+						} catch (e: Exception) {
+							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages failed", e)
+						}
+					}
+					// Return empty to prevent default navigation (we already triggered usages)
+					return emptyArray()
+				} else {
+					// Fallback when editor not available (tests) – return sourceElement
+					LOG.warn("TsrxGotoDeclarationHandler: editor null, returning sourceElement for ${file.name}:$caretOffset")
+					return arrayOf(sourceElement)
+				}
 			}
 		} catch (e: Exception) {
 			LOG.warn("TsrxGotoDeclarationHandler: exception", e)
