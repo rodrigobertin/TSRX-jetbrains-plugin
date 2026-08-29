@@ -5,6 +5,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
+import javax.swing.Icon
 
 class TsrxLspServerSupportProvider : LspServerSupportProvider {
 	override fun fileOpened(
@@ -23,5 +24,12 @@ class TsrxLspServerSupportProvider : LspServerSupportProvider {
 	override fun createLspServerWidgetItem(
 		lspServer: LspServer,
 		currentFile: VirtualFile?,
-	): LspServerWidgetItem = LspServerWidgetItem(lspServer, currentFile, TsrxIcons.FILE)
+	): LspServerWidgetItem = TsrxLspServerWidgetItem(lspServer, currentFile)
+}
+
+private class TsrxLspServerWidgetItem(
+	lspServer: LspServer,
+	currentFile: VirtualFile?,
+) : LspServerWidgetItem(lspServer, currentFile, TsrxIcons.WIDGET) {
+	override val statusBarIcon: Icon = TsrxIcons.WIDGET_STATUSBAR
 }
