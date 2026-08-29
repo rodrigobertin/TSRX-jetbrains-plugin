@@ -46,6 +46,8 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
 		<textmate.bundleProvider implementation="dev.tsrx.intellij_plugin.TsrxTextMateBundleProvider"/>
 		<notificationGroup id="TSRX" displayType="BALLOON" isLogByDefault="true"/>
 		<internalFileTemplate name="TSRX File"/>
+		<spellchecker.bundledDictionaryProvider
+			implementationClass="dev.tsrx.intellij_plugin.TsrxBundledDictionaryProvider"/>
 	</extensions>
 	<actions>
 		<action id="NewTsrxFile" class="dev.tsrx.intellij_plugin.NewTsrxFileAction"

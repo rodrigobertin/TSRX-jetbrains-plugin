@@ -29,6 +29,11 @@ dependencies {
 	}
 }
 
+val ideDir = configurations.named("intellijPlatformDependency").map { it.files.first() }
+dependencies {
+	compileOnly(files(ideDir.map { file("$it/lib/modules/intellij.spellchecker.jar") }))
+}
+
 intellijPlatform {
 	pluginConfiguration {
 		name = "TSRX"
