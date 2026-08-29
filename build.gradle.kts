@@ -5,7 +5,11 @@ plugins {
 }
 
 group = "dev.tsrx.intellij_plugin"
-version = "0.0.82"
+version = providers.environmentVariable("GITHUB_REF_NAME")
+	.orElse(providers.gradleProperty("pluginVersion"))
+	.orElse("0.0.82")
+	.map { it.removePrefix("v") }
+	.get()
 
 repositories {
 	mavenCentral()
@@ -42,7 +46,7 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
         """.trimIndent()
 
 		changeNotes = """
-<h2>0.0.82 — Multi-IDE & Marketplace polish</h2>
+<h2>${project.version} — Multi-IDE & Marketplace polish</h2>
 <ul>
   <li>Compatible with IntelliJ IDEA, WebStorm, PyCharm and PhpStorm 2025.2+</li>
   <li>Marketplace description with features, requirements and links</li>
