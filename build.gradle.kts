@@ -62,6 +62,10 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
 		}
 	}
 
+	publishing {
+		token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+	}
+
 	pluginVerification {
 		ides {
 			recommended()
