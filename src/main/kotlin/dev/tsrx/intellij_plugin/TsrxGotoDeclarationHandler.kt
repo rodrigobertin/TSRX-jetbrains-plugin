@@ -42,9 +42,12 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 			LOG.warn("TsrxGotoDeclarationHandler: containingFile null -> return null")
 			return null
 		}
-		LOG.warn("TsrxGotoDeclarationHandler: file language=${file.language} fileType=${file.fileType.name} isTsrxLang=${file.language.`is`(TsrxLanguage)} isTsrxFileType=${file.fileType === TsrxFileType.INSTANCE}")
-		// Only for TSRX – allow if either language is TSRX OR fileType is TSRX (TextMate files may have generic language)
-		if (!file.language.`is`(TsrxLanguage) && file.fileType !== TsrxFileType.INSTANCE) {
+		val vFile = file.virtualFile ?: file.viewProvider.virtualFile
+		val isTsrxByName = file.name.endsWith(".tsrx") || vFile?.name?.endsWith(".tsrx") == true || vFile?.extension == "tsrx"
+		val isTsrxByLang = file.language.`is`(TsrxLanguage)
+		val isTsrxByType = file.fileType === TsrxFileType.INSTANCE
+		LOG.warn("TsrxGotoDeclarationHandler: file language=${file.language} fileType=${file.fileType.name} isTsrxLang=$isTsrxByLang isTsrxFileType=$isTsrxByType isTsrxByName=$isTsrxByName vFile=${vFile?.name}")
+		if (!isTsrxByName && !isTsrxByLang && !isTsrxByType) {
 			LOG.warn("TsrxGotoDeclarationHandler: not TSRX file -> return null (let LSP handle)")
 			return null
 		}
@@ -55,26 +58,38 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 			return null
 		}
 
-		// Heuristic: is caret on a declaration? Check preceding text in file up to offset
-		// contains declaration keywords near the word.
+		// Heuristic: distinguish declaration (Prueba.tsrx: export function TestButton) vs usage (App.tsrx: <TestButton/>)
 		try {
 			val docText = file.text ?: return null
-			val offsetInFile = sourceElement.textRange?.startOffset ?: offset
-			val windowStart = maxOf(0, offsetInFile - 200)
-			val prefix = docText.substring(windowStart, offsetInFile)
-			val trimmedPrefix = prefix.trimEnd()
-			val isDeclaration = prefix.contains(Regex("\\b(function|const|let|var|class|interface|type|export)\\b[^;{]*$"))
-				|| trimmedPrefix.endsWith("export") || trimmedPrefix.endsWith("function")
-				|| trimmedPrefix.matches(Regex(".*\\bexport\\s+function\\s*"))
-				|| docText.substring(0, offsetInFile).contains(Regex("export\\s+function\\s+${Regex.escape(text)}\\b"))
+			// Use caret offset from editor if available, otherwise element start offset
+			val caretOffset = editor?.caretModel?.offset ?: offset
+			val wordAtCaret = try {
+				val start = maxOf(0, caretOffset - 15)
+				val end = minOf(docText.length, caretOffset + 15)
+				val snippet = docText.substring(start, end)
+				// Find word around caret
+				val wordRegex = Regex("""\b(\w+)\b""")
+				// Look for word that contains caret
+				val caretInSnippet = caretOffset - start
+				wordRegex.findAll(snippet).firstOrNull { it.range.first <= caretInSnippet && caretInSnippet <= it.range.last }?.groupValues?.getOrNull(1)
+					?: Regex("""\b(\w+)\b""").find(text)?.groupValues?.getOrNull(1)
+			} catch (_: Exception) { null }
+			val effectiveWord = wordAtCaret?.takeIf { it.isNotBlank() } ?: text.trim().take(30).split(Regex("""\W+""")).firstOrNull() ?: text.take(20)
+			val beforeCaret = docText.substring(maxOf(0, caretOffset - 40), caretOffset)
+			val beforeCaretTrimmed = beforeCaret.trimEnd()
+			val isDeclaration = beforeCaret.contains(Regex("""export\s+function\s+${Regex.escape(effectiveWord)}\b"""))
+				|| beforeCaretTrimmed.endsWith("export function $effectiveWord")
+				|| beforeCaretTrimmed.endsWith("function $effectiveWord")
+				|| beforeCaret.matches(Regex(""".*\bexport\s+function\s+${Regex.escape(effectiveWord)}\s*"""))
+				|| (beforeCaret.contains(Regex("""\bexport\s+function\b""")) && beforeCaret.length < 50 && effectiveWord.length > 2)
 
-			LOG.warn("TsrxGotoDeclarationHandler: text='${text}' prefix='${prefix.takeLast(50)}' isDeclaration=$isDeclaration offset=$offset offsetInFile=$offsetInFile file=${file.name}")
+			LOG.warn("TsrxGotoDeclarationHandler: text='${text.take(30)}' wordAtCaret='$effectiveWord' beforeCaret='${beforeCaret.takeLast(40)}' isDeclaration=$isDeclaration caretOffset=$caretOffset offset=$offset file=${file.name}")
 
 			// If isDeclaration, return the sourceElement itself to trigger \"show usages\" fallback.
 			// GotoDeclarationOrUsagesHandler2 will see target == source and show usages popup
 			// which will be populated by LSP textDocument/references.
 			if (isDeclaration) {
-				LOG.warn("TsrxGotoDeclarationHandler: returning sourceElement for usages popup: ${file.name}:${offsetInFile}")
+				LOG.warn("TsrxGotoDeclarationHandler: returning sourceElement for usages popup: ${file.name}:$caretOffset word=$effectiveWord")
 				return arrayOf(sourceElement)
 			}
 		} catch (e: Exception) {
