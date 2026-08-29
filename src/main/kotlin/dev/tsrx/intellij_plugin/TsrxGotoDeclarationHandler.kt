@@ -1,14 +1,13 @@
 package dev.tsrx.intellij_plugin
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
+import com.intellij.ide.DataManager
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
-import com.intellij.psi.impl.FakePsiElement
 
 /**
  * Enables \"Go to Declaration or Usages\" (Cmd+B) on TSRX definitions.
@@ -90,39 +89,29 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 
 			LOG.warn("TsrxGotoDeclarationHandler: text='${text.take(30)}' wordAtCaret='$effectiveWord' beforeCaret='${beforeCaret.takeLast(40)}' isDeclaration=$isDeclaration caretOffset=$caretOffset offset=$offset file=${file.name}")
 
-			// If isDeclaration, trigger Find Usages directly (Cmd+B on definition should show usages)
+			// If isDeclaration, trigger Find Usages via the same action as Alt+F7 (uses editor caret, not PsiElement text)
 			if (isDeclaration) {
-				LOG.warn("TsrxGotoDeclarationHandler: triggering FindUsages for declaration: ${file.name}:$caretOffset word=$effectiveWord")
+				LOG.warn("TsrxGotoDeclarationHandler: triggering FindUsages via FindUsagesAction for declaration: ${file.name}:$caretOffset word=$effectiveWord")
 				if (editor != null) {
 					val project = file.project
-					// Create a fake PsiElement that represents just the identifier (TestButton) at caretOffset,
-					// because file.findElementAt returns the whole TEXT leaf "export function TestButton() @"
-					val wordStart = try {
-						val idx = docText.indexOf(effectiveWord, maxOf(0, caretOffset - effectiveWord.length - 5))
-						if (idx >= 0 && idx <= caretOffset && caretOffset <= idx + effectiveWord.length) idx else caretOffset
-					} catch (_: Exception) { caretOffset }
-					val fakeElement = object : FakePsiElement() {
-						override fun getParent(): PsiElement? = file
-						override fun getPresentableText(): String = effectiveWord
-						override fun getText(): String = effectiveWord
-						override fun getTextRange(): TextRange = TextRange(wordStart, wordStart + effectiveWord.length)
-						override fun getContainingFile(): PsiFile = file
-						override fun getManager(): com.intellij.psi.PsiManager = file.manager
-						override fun getLanguage(): com.intellij.lang.Language = TsrxLanguage
-					}
-					LOG.warn("TsrxGotoDeclarationHandler: fakeElement='${fakeElement.text}' range=${fakeElement.textRange} vs sourceElement='${sourceElement.text?.take(30)}'")
 					ApplicationManager.getApplication().invokeLater {
 						try {
-							GotoDeclarationAction.startFindUsages(editor, project, fakeElement)
-							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked with fakeElement for ${file.name}:$caretOffset word=$effectiveWord")
+							val actionManager = ActionManager.getInstance()
+							val findUsagesAction = actionManager.getAction("FindUsages")
+							if (findUsagesAction != null) {
+								val dataContext = DataManager.getInstance().getDataContext(editor.component)
+								val event = AnActionEvent.createFromDataContext("FindUsages", null, dataContext)
+								findUsagesAction.actionPerformed(event)
+								LOG.warn("TsrxGotoDeclarationHandler: FindUsagesAction performed for ${file.name}:$caretOffset word=$effectiveWord")
+							} else {
+								LOG.warn("TsrxGotoDeclarationHandler: FindUsages action not found")
+							}
 						} catch (e: Exception) {
-							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages failed", e)
+							LOG.warn("TsrxGotoDeclarationHandler: FindUsagesAction failed", e)
 						}
 					}
-					// Return empty to prevent default navigation (we already triggered usages)
 					return emptyArray()
 				} else {
-					// Fallback when editor not available (tests) – return sourceElement
 					LOG.warn("TsrxGotoDeclarationHandler: editor null, returning sourceElement for ${file.name}:$caretOffset")
 					return arrayOf(sourceElement)
 				}
