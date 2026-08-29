@@ -88,15 +88,17 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 			LOG.warn("TsrxGotoDeclarationHandler: text='${text.take(30)}' wordAtCaret='$effectiveWord' beforeCaret='${beforeCaret.takeLast(40)}' isDeclaration=$isDeclaration caretOffset=$caretOffset offset=$offset file=${file.name}")
 
 			// If isDeclaration, trigger Find Usages directly (Cmd+B on definition should show usages)
-			// Returning sourceElement alone just moves cursor for TEXT leaf; we need to invoke ShowUsages.
 			if (isDeclaration) {
 				LOG.warn("TsrxGotoDeclarationHandler: triggering FindUsages for declaration: ${file.name}:$caretOffset word=$effectiveWord")
 				if (editor != null) {
 					val project = file.project
+					// Use element at caret (should be the identifier TestButton, not the whole leaf "export function ...")
+					val elementAtCaret = try { file.findElementAt(caretOffset) ?: sourceElement } catch (_: Exception) { sourceElement }
+					LOG.warn("TsrxGotoDeclarationHandler: elementAtCaret='${elementAtCaret?.text?.take(30)}' vs sourceElement='${sourceElement.text?.take(30)}'")
 					ApplicationManager.getApplication().invokeLater {
 						try {
-							GotoDeclarationAction.startFindUsages(editor, project, sourceElement)
-							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked for ${file.name}:$caretOffset")
+							GotoDeclarationAction.startFindUsages(editor, project, elementAtCaret ?: sourceElement)
+							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked for ${file.name}:$caretOffset elementAtCaret=${elementAtCaret?.text?.take(30)}")
 						} catch (e: Exception) {
 							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages failed", e)
 						}
