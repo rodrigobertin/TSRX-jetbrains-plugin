@@ -5,7 +5,10 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.impl.FakePsiElement
 
 /**
  * Enables \"Go to Declaration or Usages\" (Cmd+B) on TSRX definitions.
@@ -92,13 +95,26 @@ class TsrxGotoDeclarationHandler : GotoDeclarationHandler {
 				LOG.warn("TsrxGotoDeclarationHandler: triggering FindUsages for declaration: ${file.name}:$caretOffset word=$effectiveWord")
 				if (editor != null) {
 					val project = file.project
-					// Use element at caret (should be the identifier TestButton, not the whole leaf "export function ...")
-					val elementAtCaret = try { file.findElementAt(caretOffset) ?: sourceElement } catch (_: Exception) { sourceElement }
-					LOG.warn("TsrxGotoDeclarationHandler: elementAtCaret='${elementAtCaret?.text?.take(30)}' vs sourceElement='${sourceElement.text?.take(30)}'")
+					// Create a fake PsiElement that represents just the identifier (TestButton) at caretOffset,
+					// because file.findElementAt returns the whole TEXT leaf "export function TestButton() @"
+					val wordStart = try {
+						val idx = docText.indexOf(effectiveWord, maxOf(0, caretOffset - effectiveWord.length - 5))
+						if (idx >= 0 && idx <= caretOffset && caretOffset <= idx + effectiveWord.length) idx else caretOffset
+					} catch (_: Exception) { caretOffset }
+					val fakeElement = object : FakePsiElement() {
+						override fun getParent(): PsiElement? = file
+						override fun getPresentableText(): String = effectiveWord
+						override fun getText(): String = effectiveWord
+						override fun getTextRange(): TextRange = TextRange(wordStart, wordStart + effectiveWord.length)
+						override fun getContainingFile(): PsiFile = file
+						override fun getManager(): com.intellij.psi.PsiManager = file.manager
+						override fun getLanguage(): com.intellij.lang.Language = TsrxLanguage
+					}
+					LOG.warn("TsrxGotoDeclarationHandler: fakeElement='${fakeElement.text}' range=${fakeElement.textRange} vs sourceElement='${sourceElement.text?.take(30)}'")
 					ApplicationManager.getApplication().invokeLater {
 						try {
-							GotoDeclarationAction.startFindUsages(editor, project, elementAtCaret ?: sourceElement)
-							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked for ${file.name}:$caretOffset elementAtCaret=${elementAtCaret?.text?.take(30)}")
+							GotoDeclarationAction.startFindUsages(editor, project, fakeElement)
+							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages invoked with fakeElement for ${file.name}:$caretOffset word=$effectiveWord")
 						} catch (e: Exception) {
 							LOG.warn("TsrxGotoDeclarationHandler: startFindUsages failed", e)
 						}
