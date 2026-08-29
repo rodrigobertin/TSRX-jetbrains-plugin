@@ -1,6 +1,6 @@
 package dev.tsrx.intellij_plugin
 
-import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.plugins.PluginManager
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.extensions.PluginId
@@ -158,7 +158,7 @@ class TsrxTextMateBundleProvider : TextMateBundleProvider {
 	}
 
 	private fun pluginVersion(): String {
-		val descriptor = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))
+		val descriptor = PluginManager.getInstance().findEnabledPlugin(PluginId.getId(PLUGIN_ID))
 		return descriptor?.version ?: "dev"
 	}
 
