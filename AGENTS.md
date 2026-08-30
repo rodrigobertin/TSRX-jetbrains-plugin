@@ -26,10 +26,10 @@ node scripts/regenerate-textmate.js   # regenerate TextMate bundle from grammars
 |------|------|---------|
 | LSP version | `gradle.properties` → `tsrxLspVersion` | `0.3.128` |
 | LSP version | `src/main/resources/lsp-version.txt` | `0.3.128` |
-| Plugin version | `build.gradle.kts` → `version` (fallback) | `0.0.82` |
-| Plugin version | `package.json` → `version` | `0.0.82` |
+| Plugin version | `build.gradle.kts` → `version` (fallback) | `1.0.5` |
+| Plugin version | `package.json` → `version` | `1.0.5` |
 
-Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `0.0.82` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
+Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `1.0.5` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
 
 ## TextMate Grammar
 
@@ -48,10 +48,21 @@ All Kotlin source lives in a single flat package: `dev.tsrx.intellij_plugin` und
 | `TsrxLanguageServer` | Resolves/installs `@tsrx/language-server` (local `node_modules/.bin` → global PATH → auto-install via npm) |
 | `TsrxLspServerSupportProvider` / `TsrxLspServerDescriptor` | LSP integration (optional, gated by `com.intellij.modules.lsp`) |
 | `TsrxCommenter` / `TsrxBraceMatcher` / `TsrxFindUsagesProvider` / `TsrxGotoDeclarationHandler` | IDE editor features |
+| `TsrxEmmetGenerator` | Emmet in `.tsrx` — `xml.zenCodingGenerator` EP; extends `XmlZenCodingGeneratorImpl`, matches `TsrxLanguage`/`*.tsrx` (built-in generators only match `XMLLanguage`/JSX dialects) |
+| `TsrxXmlExtension` | HTML tag handling (auto-close, sync editing) in `.tsrx` — `xml.extension` EP |
 | `NewTsrxFileAction` | New File → TSRX File action |
 | `TsrxIcons` | Icon references |
 
 `plugin.xml` registers extensions; `tsrx-lsp.xml` is an optional config-file loaded only when LSP support is present.
+
+## Emmet in .tsrx (since v1.0.5)
+
+Emmet (`div>ul>li*3` + `Tab`) is provided by `TsrxEmmetGenerator`, registered as `<xml.zenCodingGenerator>` (`com.intellij` namespace, EP declared in `app.jar`). Key points:
+
+- **Why a custom generator:** built-in `XmlZenCodingGeneratorImpl.isMyLanguage` requires `XMLLanguage` and `JSXZenCodingGenerator` requires `DialectDetector.isJSX` — neither matches `TsrxLanguage : Language("TSRX")`. Without a registered generator, `ZenCodingTemplate.findApplicableDefaultGenerator()` finds no candidate for `.tsrx`.
+- **Context check is relaxed on purpose:** TSRX is TextMate-only (flat PSI, no `XmlTag`/`XmlText`), so `HtmlTextContextType.isInContext()` always returns false. `TsrxEmmetGenerator.isMyContext` falls back to "is this a `.tsrx` file" (language check → `VirtualFile.extension` → filename).
+- **Template generation is reused:** `generateTemplate`/`createTemplateByKey` from `XmlZenCodingGeneratorImpl` produce the HTML; `getSuffix() = "html"` enables html/BEM filters. Gated by `EmmetOptions.isEmmetEnabled` (Settings → Editor → Emmet).
+- **Caveat:** Emmet currently expands anywhere in a `.tsrx` file (including inside `@if(...)` headers or JS blocks). A markup-context gate can be added to `isMyContext` if needed.
 
 ## Gotchas
 
