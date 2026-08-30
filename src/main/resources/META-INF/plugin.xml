@@ -20,6 +20,7 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
   <li>Syntax highlighting via TextMate (<code>source.tsrx</code>) — TSX-like plus <code>@if/@else</code>, <code>@for/@empty</code>, <code>@switch/@case/@default</code>, <code>@try/@pending/@catch</code>, <code>@{}</code> statement containers, <code>&lt;style&gt;</code> scoped CSS, <code>{prop}</code> shorthand and <code>&lt;{expr}&gt;</code> dynamic tags</li>
   <li>Language Server (<code>@tsrx/language-server</code>) — diagnostics, completion, hover, Go to Definition, Find Usages, document symbols, auto-closing tags</li>
   <li>Status bar TSRX icon for Language Services, <em>New File → TSRX File</em> template, braces & comments</li>
+  <li>Emmet abbreviations (<code>div&gt;ul&gt;li*3</code> → <code>Tab</code>) and HTML tag handling (auto-close, sync editing) in <code>.tsrx</code> files</li>
 </ul>
 <p>Requirements: Node.js 22+ on PATH and project with <code>@tsrx/typescript-plugin</code> in <code>tsconfig.json</code>. The LSP auto-installs if missing.</p>
 <p>Links: <a href="https://tsrx.dev">tsrx.dev</a> · <a href="https://github.com/tsrx-org/tsrx">GitHub</a> · <a href="https://github.com/tsrx-org/tsrx/issues">Issues</a></p>
@@ -48,6 +49,8 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
 		<internalFileTemplate name="TSRX File"/>
 		<spellchecker.bundledDictionaryProvider
 			implementationClass="dev.tsrx.intellij_plugin.TsrxBundledDictionaryProvider"/>
+		<xml.zenCodingGenerator implementation="dev.tsrx.intellij_plugin.TsrxEmmetGenerator"/>
+		<xml.extension implementation="dev.tsrx.intellij_plugin.TsrxXmlExtension"/>
 	</extensions>
 	<actions>
 		<action id="NewTsrxFile" class="dev.tsrx.intellij_plugin.NewTsrxFileAction"
