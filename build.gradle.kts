@@ -7,7 +7,7 @@ plugins {
 group = "dev.tsrx.intellij_plugin"
 version = providers.environmentVariable("GITHUB_REF_NAME")
 	.orElse(providers.gradleProperty("pluginVersion"))
-	.orElse("1.0.6")
+	.orElse("1.0.7")
 	.map { it.removePrefix("v") }
 	.get()
 
@@ -47,17 +47,18 @@ TSRX — TypeScript Render Extensions for .tsrx files. A TSX superset with decla
   <li>Status bar TSRX icon for Language Services, <em>New File → TSRX File</em> template, braces & comments</li>
   <li>Emmet abbreviations (<code>div&gt;ul&gt;li*3</code> → <code>Tab</code>) and HTML tag handling (auto-close, sync editing) in <code>.tsrx</code> files</li>
   <li>Code folding — collapse tags (<code>&lt;div class="test"&gt;...&lt;/div&gt;</code>), <code>@if/@for/@switch/@try</code> blocks, braces and import groups</li>
+  <li>Reformat Code — indent tags/braces like TSX (via <code>Code → Reformat Code</code>), powered by the same single-pass scanner as folding; no external formatter required</li>
 </ul>
 <p>Requirements: Node.js 22+ on PATH and project with <code>@tsrx/typescript-plugin</code> in <code>tsconfig.json</code>. The LSP auto-installs if missing.</p>
 <p>Links: <a href="https://tsrx.dev">tsrx.dev</a> · <a href="https://github.com/tsrx-org/tsrx">GitHub</a> · <a href="https://github.com/tsrx-org/tsrx/issues">Issues</a></p>
         """.trimIndent()
 
 		changeNotes = """
-<h2>${project.version} — Code folding for .tsrx</h2>
+<h2>${project.version} — Reformat Code for .tsrx</h2>
 <ul>
-  <li><b>Code folding in <code>.tsrx</code></b> — collapse HTML/JSX tags (<code>&lt;div class="test"&gt;...&lt;/div&gt;</code>), <code>@if/@for/@switch/@try/@&#123;&#125;</code> directive blocks, function/object braces and import groups</li>
-  <li>Tags, braces and templates are parsed with a single-pass scanner (strings, comments, template literals and regex literals are skipped)</li>
-  <li>Works without the Language Server — folding is computed locally from the document</li>
+  <li><b>Reformat Code in <code>.tsrx</code></b> — <code>Code → Reformat Code</code> indents tags/braces like TSX (single-pass scanner, same engine as folding); try on <code>&lt;div&gt;&lt;h1&gt;test&lt;/h1&gt;&lt;/div&gt;</code></li>
+  <li>Powered by <code>TsrxFormattingService</code> (<code>AsyncDocumentFormattingService</code>) — works offline, no Prettier/LSP required, with warn-level logs for diagnostics</li>
+  <li>Still includes code folding, Emmet and HTML tag handling from 1.0.5/1.0.6</li>
 </ul>
         """.trimIndent()
 

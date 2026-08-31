@@ -26,10 +26,10 @@ node scripts/regenerate-textmate.js   # regenerate TextMate bundle from grammars
 |------|------|---------|
 | LSP version | `gradle.properties` → `tsrxLspVersion` | `0.3.128` |
 | LSP version | `src/main/resources/lsp-version.txt` | `0.3.128` |
-| Plugin version | `build.gradle.kts` → `version` (fallback) | `1.0.6` |
-| Plugin version | `package.json` → `version` | `1.0.6` |
+| Plugin version | `build.gradle.kts` → `version` (fallback) | `1.0.7` |
+| Plugin version | `package.json` → `version` | `1.0.7` |
 
-Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `1.0.6` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
+Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `1.0.7` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
 
 ## TextMate Grammar
 
@@ -51,6 +51,7 @@ All Kotlin source lives in a single flat package: `dev.tsrx.intellij_plugin` und
 | `TsrxEmmetGenerator` | Emmet in `.tsrx` — `xml.zenCodingGenerator` EP; extends `XmlZenCodingGeneratorImpl`, matches `TsrxLanguage`/`*.tsrx` (built-in generators only match `XMLLanguage`/JSX dialects) |
 | `TsrxXmlExtension` | HTML tag handling (auto-close, sync editing) in `.tsrx` — `xml.extension` EP |
 | `TsrxFoldingBuilder` | Code folding in `.tsrx` — `lang.foldingBuilder` EP; single-pass text scanner (tags, braces, imports), no PSI required |
+| `TsrxFormattingService` | Reformat Code in `.tsrx` — `formattingService` EP (`AsyncDocumentFormattingService`); same scanner as folding, indents tags/braces like TSX, offline |
 | `NewTsrxFileAction` | New File → TSRX File action |
 | `TsrxIcons` | Icon references |
 
@@ -74,6 +75,15 @@ Folding (`<div class="test">...</div>` collapse, `@if {...}`, import groups) is 
 - **`<` disambiguation:** `<` is treated as a tag open only when the previous char is not an identifier/`]`/`)` char — this keeps TS generics (`Array<string>`) and comparisons (`a < b`) out of the tag stack. Self-closing (`<br/>`) and void elements (`img`, `input`, ...) are not pushed.
 - **Dumb-aware:** works without indices or the LSP; folding is computed purely from the document text.
 - **Caveat:** heuristic scanner, not a parser — exotic cases (regex after `return`, tags inside attribute expressions like `attr={<span/>}`) are skipped rather than folded. `// region` markers are left to `CustomFoldingBuilder`'s built-in custom-region support.
+
+## Reformat Code in .tsrx (since v1.0.7)
+
+Reformatting (`Code → Reformat Code`) is provided by `TsrxFormattingService`, registered as `formattingService` (`AsyncDocumentFormattingService`). Key points:
+
+- **Same scanner as folding:** reuses the single-pass state machine (tags, braces, imports, strings, comments, template literals) but computes indent instead of fold ranges — `tagDepth + braceDepth` determines indent (2 spaces).
+- **Offline & LSP-free:** no Node, no `textDocument/formatting`; the LSP (`@tsrx/language-server` 0.3.128) explicitly strips `documentFormattingProvider` (formatting is owned by Prettier in VS Code) so IDE formatting must be local.
+- **Triggers:** `Code → Reformat Code`, `Reformat on Save`, and range formatting all route through `AsyncDocumentFormattingService` → `onTextReady` diff.
+- **Caveat:** heuristic like folding — `Array<string>`/regex edge cases share the same limitations.
 
 ## Gotchas
 
