@@ -26,10 +26,10 @@ node scripts/regenerate-textmate.js   # regenerate TextMate bundle from grammars
 |------|------|---------|
 | LSP version | `gradle.properties` → `tsrxLspVersion` | `0.3.128` |
 | LSP version | `src/main/resources/lsp-version.txt` | `0.3.128` |
-| Plugin version | `build.gradle.kts` → `version` (fallback) | `1.0.5` |
-| Plugin version | `package.json` → `version` | `1.0.5` |
+| Plugin version | `build.gradle.kts` → `version` (fallback) | `1.0.6` |
+| Plugin version | `package.json` → `version` | `1.0.6` |
 
-Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `1.0.5` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
+Plugin version at build time: `GITHUB_REF_NAME` env var → `pluginVersion` Gradle property → fallback `1.0.6` (with `v` prefix stripped). Publishing is triggered by pushing `v*` tags.
 
 ## TextMate Grammar
 
@@ -50,6 +50,7 @@ All Kotlin source lives in a single flat package: `dev.tsrx.intellij_plugin` und
 | `TsrxCommenter` / `TsrxBraceMatcher` / `TsrxFindUsagesProvider` / `TsrxGotoDeclarationHandler` | IDE editor features |
 | `TsrxEmmetGenerator` | Emmet in `.tsrx` — `xml.zenCodingGenerator` EP; extends `XmlZenCodingGeneratorImpl`, matches `TsrxLanguage`/`*.tsrx` (built-in generators only match `XMLLanguage`/JSX dialects) |
 | `TsrxXmlExtension` | HTML tag handling (auto-close, sync editing) in `.tsrx` — `xml.extension` EP |
+| `TsrxFoldingBuilder` | Code folding in `.tsrx` — `lang.foldingBuilder` EP; single-pass text scanner (tags, braces, imports), no PSI required |
 | `NewTsrxFileAction` | New File → TSRX File action |
 | `TsrxIcons` | Icon references |
 
@@ -63,6 +64,16 @@ Emmet (`div>ul>li*3` + `Tab`) is provided by `TsrxEmmetGenerator`, registered as
 - **Context check is relaxed on purpose:** TSRX is TextMate-only (flat PSI, no `XmlTag`/`XmlText`), so `HtmlTextContextType.isInContext()` always returns false. `TsrxEmmetGenerator.isMyContext` falls back to "is this a `.tsrx` file" (language check → `VirtualFile.extension` → filename).
 - **Template generation is reused:** `generateTemplate`/`createTemplateByKey` from `XmlZenCodingGeneratorImpl` produce the HTML; `getSuffix() = "html"` enables html/BEM filters. Gated by `EmmetOptions.isEmmetEnabled` (Settings → Editor → Emmet).
 - **Caveat:** Emmet currently expands anywhere in a `.tsrx` file (including inside `@if(...)` headers or JS blocks). A markup-context gate can be added to `isMyContext` if needed.
+
+## Code Folding in .tsrx (since v1.0.6)
+
+Folding (`<div class="test">...</div>` collapse, `@if {...}`, import groups) is provided by `TsrxFoldingBuilder`, registered as `<lang.foldingBuilder language="TSRX">`. Key points:
+
+- **Why a custom builder:** TSRX is TextMate-only — the PSI is a flat token list with no `XmlTag`/block AST, so there is nothing for a PSI-walking folding builder to traverse. The `@tsrx/language-server` LSP does not expose `textDocument/foldingRange` (verified against 0.3.128), so LSP folding is not an option either.
+- **Single-pass text scanner:** `buildLanguageFoldRegions` scans `document.charsSequence` once with a state machine, skipping strings (`'` `"`), template literals (`` ` `` with `${}` interpolation returning to code mode), line/block comments and regex literals (heuristic: `/` preceded by an operator char). Emits `FoldingDescriptor`s for: balanced `<tag ...> ... </tag>` pairs (fold body only → placeholder shows `<div class="test">...</div>`), balanced `{ ... }` blocks (→ `@if (cond) {...}`), and contiguous `import` runs (≥2 lines → `N imports`). Only multiline regions fold.
+- **`<` disambiguation:** `<` is treated as a tag open only when the previous char is not an identifier/`]`/`)` char — this keeps TS generics (`Array<string>`) and comparisons (`a < b`) out of the tag stack. Self-closing (`<br/>`) and void elements (`img`, `input`, ...) are not pushed.
+- **Dumb-aware:** works without indices or the LSP; folding is computed purely from the document text.
+- **Caveat:** heuristic scanner, not a parser — exotic cases (regex after `return`, tags inside attribute expressions like `attr={<span/>}`) are skipped rather than folded. `// region` markers are left to `CustomFoldingBuilder`'s built-in custom-region support.
 
 ## Gotchas
 
